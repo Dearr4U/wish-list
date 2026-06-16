@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wishlist Kita</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&family=Cormorant+Garamond:ital,wght@0,400;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+/* ── TOKENS ── */
+:root {
+  --cream: #fdf6f0;
+  --blush: #f4ddd5;
+  --rose: #d4837a;
+  --mauve: #b07a8a;
+  --plum: #6b4c5e;
+  --gold: #c9a96e;
+  --ink: #1a1015;
+  --bg: #120c10;
+  --surface: #1e1318;
+  --surface-2: #271a20;
+  --text: #f0e8ec;
+  --muted: rgba(240,232,236,0.52);
+  --glass: rgba(255,255,255,0.05);
+  --glass-border: rgba(255,255,255,0.12);
+  --shadow: 0 8px 40px rgba(0,0,0,0.35);
+  --radius: 20px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Jost',sans-serif;
+  font-weight:300;
+  overflow-x:hidden;
+  cursor:default;
+}
+::selection{background:var(--rose);color:#fff;}
+img{display:block;max-width:100%;}
+button{font-family:inherit;}
+
+/* ambient glow */
+#bgGlow{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 70% 55% at 75% 8%, rgba(212,131,122,0.16) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 50% at 10% 75%, rgba(176,122,138,0.13) 0%, transparent 60%),
+    radial-gradient(ellipse 45% 40% at 50% 100%, rgba(201,169,110,0.08) 0%, transparent 60%);
+}
+
+/* ── NAV ── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 32px;
+  backdrop-filter:blur(18px);
+  background:rgba(18,12,16,0.65);
+  border-bottom:1px solid var(--glass-border);
+}
+.nav-logo{font-family:'Playfair Display',serif;font-style:italic;font-size:1.3rem;color:var(--rose);letter-spacing:.02em;display:flex;align-items:center;gap:8px;}
+.nav-links{display:flex;gap:28px;list-style:none;align-items:center;}
+.nav-links a{font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color .25s;}
+.nav-links a:hover,.nav-links a.active{color:var(--rose);}
+.nav-right{display:flex;align-items:center;gap:10px;}
+.icon-btn{
+  width:38px;height:38px;border-radius:50%;
+  background:var(--glass);border:1px solid var(--glass-border);
+  color:var(--text);font-size:1rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .2s,transform .2s;
+}
+.icon-btn:hover{background:rgba(212,131,122,0.18);transform:translateY(-1px);}
+.add-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:10px 20px;border-radius:40px;border:none;
+  background:linear-gradient(135deg,var(--rose),var(--mauve));
+  color:#fff;font-size:.78rem;font-weight:500;letter-spacing:.07em;
+  text-transform:uppercase;cursor:pointer;
+  box-shadow:0 4px 18px rgba(180,100,120,0.35);
+  transition:transform .2s,box-shadow .2s;
+}
+.add-btn:hover{transform:translateY(-2px);box-shadow:0 8px 26px rgba(180,100,120,0.5);}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;background:none;border:none;}
+.hamburger span{width:22px;height:1px;background:var(--text);display:block;transition:.3s;}
+.mobile-menu{
+  position:fixed;top:64px;left:0;right:0;z-index:99;
+  background:rgba(18,12,16,0.97);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--glass-border);
+  display:flex;flex-direction:column;padding:8px 0;
+  max-height:0;overflow:hidden;transition:max-height .3s ease;
+}
+.mobile-menu.open{max-height:260px;}
+.mobile-menu a{padding:14px 32px;color:var(--muted);text-decoration:none;font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;}
+.mobile-menu a:hover{color:var(--rose);}
+
+/* ── HERO ── */
+#hero{min-height:92vh;display:flex;align-items:center;justify-content:center;position:relative;padding:130px 24px 60px;text-align:center;}
+.hero-inner{max-width:680px;width:100%;position:relative;z-index:1;}
+.hero-eyebrow{opacity:0;font-size:.74rem;letter-spacing:.24em;text-transform:uppercase;color:var(--rose);margin-bottom:18px;}
+.hero-title{opacity:0;font-family:'Playfair Display',serif;font-weight:400;font-size:clamp(2.3rem,6vw,3.6rem);line-height:1.15;margin-bottom:18px;}
+.hero-title em{font-style:italic;color:var(--rose);}
+.hero-desc{opacity:0;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1.25rem;color:var(--muted);max-width:440px;margin:0 auto 44px;line-height:1.6;}
+
+.countdown-card{
+  opacity:0;
+  background:var(--glass);border:1px solid var(--glass-border);
+  border-radius:var(--radius);backdrop-filter:blur(16px);
+  padding:30px 26px;box-shadow:var(--shadow);
+  display:inline-flex;flex-direction:column;align-items:center;gap:18px;
+  width:100%;max-width:480px;
+}
+.countdown-label{font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px;}
+.countdown-label button{background:none;border:none;color:var(--gold);cursor:pointer;font-size:.85rem;opacity:.7;transition:opacity .2s;}
+.countdown-label button:hover{opacity:1;}
+.countdown-grid{display:flex;align-items:center;gap:8px;}
+.cd-unit{display:flex;flex-direction:column;align-items:center;min-width:58px;}
+.cd-num{font-family:'Playfair Display',serif;font-size:clamp(1.7rem,5vw,2.4rem);color:var(--text);line-height:1;}
+.cd-unit-label{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:6px;}
+.cd-sep{font-family:'Playfair Display',serif;font-size:1.6rem;color:var(--rose);opacity:.6;margin-bottom:16px;}
+.countdown-arrived{font-family:'Playfair Display',serif;font-style:italic;color:var(--gold);font-size:1.3rem;}
+
+/* ── SECTION SHARED ── */
+section{padding:70px 24px;position:relative;z-index:1;max-width:1180px;margin:0 auto;}
+.section-title{font-family:'Playfair Display',serif;font-weight:400;font-size:clamp(1.6rem,3.5vw,2.1rem);text-align:center;margin-bottom:8px;}
+.section-title em{font-style:italic;color:var(--rose);}
+.section-sub{text-align:center;color:var(--muted);font-size:.88rem;margin-bottom:44px;}
+
+/* ── DASHBOARD ── */
+.dashboard-grid{display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr;gap:18px;align-items:stretch;}
+.dash-card{
+  background:var(--glass);border:1px solid var(--glass-border);
+  border-radius:18px;padding:26px 22px;backdrop-filter:blur(14px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;
+}
+.heart-progress-card{position:relative;}
+.heart-wrap{position:relative;width:110px;height:110px;display:flex;align-items:center;justify-content:center;margin-bottom:6px;}
+.heart-base,.heart-fill-icon{position:absolute;font-size:96px;line-height:1;}
+.heart-base{color:rgba(255,255,255,0.07);}
+.heart-fill-icon{color:var(--rose);clip-path:inset(100% 0 0 0);text-shadow:0 0 24px rgba(212,131,122,0.5);}
+.heart-percent{position:relative;font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--text);z-index:2;}
+.dash-card-label{font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+.stat-num{font-family:'Playfair Display',serif;font-size:1.5rem;color:var(--text);}
+
+/* ── TABS / FILTERS ── */
+.tabs{display:flex;justify-content:center;gap:10px;margin-bottom:28px;flex-wrap:wrap;}
+.tab-btn{
+  padding:10px 26px;border-radius:40px;border:1px solid var(--glass-border);
+  background:transparent;color:var(--muted);font-size:.82rem;letter-spacing:.04em;
+  cursor:pointer;transition:.25s;
+}
+.tab-btn.active{background:linear-gradient(135deg,var(--rose),var(--mauve));color:#fff;border-color:transparent;box-shadow:0 4px 18px rgba(180,100,120,0.35);}
+.filters{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:34px;}
+.chip-row{display:flex;gap:8px;flex-wrap:wrap;}
+.chip{padding:7px 16px;border-radius:20px;border:1px solid var(--glass-border);background:var(--glass);color:var(--muted);font-size:.74rem;letter-spacing:.04em;cursor:pointer;transition:.2s;}
+.chip.active{background:rgba(212,131,122,0.22);color:var(--rose);border-color:rgba(212,131,122,0.4);}
+.sort-select{
+  background:var(--surface);color:var(--text);border:1px solid var(--glass-border);
+  border-radius:10px;padding:8px 12px;font-size:.78rem;font-family:inherit;cursor:pointer;
+}
+
+/* ── GRID & CARDS ── */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+.item-card{
+  opacity:0;
+  background:var(--surface);border:1px solid var(--glass-border);
+  border-radius:18px;overflow:hidden;display:flex;flex-direction:column;
+  box-shadow:var(--shadow);transition:transform .25s,box-shadow .25s;
+}
+.item-card:hover{transform:translateY(-4px);}
+.card-media{position:relative;width:100%;aspect-ratio:4/3;background:linear-gradient(145deg,#3a2030,#1e1318);overflow:hidden;}
+.card-media img{width:100%;height:100%;object-fit:cover;}
+.card-media .ph-heart{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:2.4rem;color:rgba(255,255,255,0.18);}
+.status-badge{position:absolute;top:10px;right:10px;font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;padding:5px 11px;border-radius:20px;backdrop-filter:blur(8px);}
+.status-belum{background:rgba(255,255,255,0.12);color:var(--muted);}
+.status-direservasi{background:rgba(201,169,110,0.25);color:var(--gold);}
+.status-terwujud{background:rgba(212,131,122,0.3);color:var(--rose);}
+.card-body{padding:18px 18px 16px;display:flex;flex-direction:column;gap:8px;flex:1;}
+.card-cat{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);}
+.card-title{font-family:'Playfair Display',serif;font-size:1.08rem;line-height:1.3;}
+.card-hearts{color:var(--rose);font-size:.85rem;letter-spacing:2px;}
+.card-price{font-size:.92rem;color:var(--text);}
+.card-notes{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:.92rem;color:var(--muted);line-height:1.4;}
+.card-footer{margin-top:auto;display:flex;align-items:center;gap:8px;padding-top:10px;}
+.status-select{
+  flex:1;background:var(--surface-2);color:var(--text);border:1px solid var(--glass-border);
+  border-radius:8px;padding:7px 8px;font-size:.72rem;font-family:inherit;cursor:pointer;
+}
+.card-icon-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--glass-border);background:var(--surface-2);color:var(--muted);cursor:pointer;font-size:.85rem;display:flex;align-items:center;justify-content:center;transition:.2s;flex-shrink:0;}
+.card-icon-btn:hover{color:var(--rose);border-color:rgba(212,131,122,0.4);}
+.card-link{font-size:.72rem;color:var(--rose);text-decoration:none;align-self:flex-start;}
+.card-link:hover{text-decoration:underline;}
+
+.empty-state{text-align:center;padding:50px 20px;color:var(--muted);}
+.empty-state .e-icon{font-size:2.4rem;margin-bottom:14px;opacity:.5;}
+.empty-state button{margin-top:18px;}
+
+footer{text-align:center;padding:50px 24px 70px;color:var(--muted);font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1rem;}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;z-index:300;background:rgba(10,6,8,0.65);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;}
+.modal-overlay.open{opacity:1;pointer-events:auto;}
+.modal{background:var(--surface);border:1px solid var(--glass-border);border-radius:20px;padding:32px 30px;width:100%;max-width:460px;max-height:88vh;overflow-y:auto;position:relative;box-shadow:0 24px 70px rgba(0,0,0,0.5);transform:scale(.94);}
+.modal h3{font-family:'Playfair Display',serif;font-size:1.4rem;margin-bottom:22px;}
+.modal-close{position:absolute;top:18px;right:18px;background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;}
+.modal-close:hover{color:var(--rose);}
+form label{display:block;font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;margin-top:16px;}
+form label:first-of-type{margin-top:0;}
+form input[type=text],form input[type=number],form input[type=url],form input[type=datetime-local],form select,form textarea{
+  width:100%;background:var(--surface-2);border:1px solid var(--glass-border);border-radius:10px;
+  padding:11px 13px;color:var(--text);font-family:inherit;font-size:.92rem;
+}
+form textarea{resize:vertical;min-height:64px;}
+form input:focus,form select:focus,form textarea:focus{outline:none;border-color:var(--rose);}
+.priority-picker{display:flex;gap:8px;}
+.priority-picker button{background:none;border:none;font-size:1.6rem;color:rgba(255,255,255,0.2);cursor:pointer;transition:color .15s;}
+.priority-picker button.filled{color:var(--rose);}
+.form-actions{margin-top:26px;}
+.form-actions .cta-btn{width:100%;justify-content:center;}
+.cta-btn{display:inline-flex;align-items:center;gap:8px;padding:13px 0;background:linear-gradient(135deg,var(--rose),var(--mauve));border:none;border-radius:40px;color:#fff;font-size:.85rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 20px rgba(180,100,120,0.4);transition:transform .2s;}
+.cta-btn:hover{transform:translateY(-2px);}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:30px;left:50%;transform:translate(-50%,30px);background:var(--surface);border:1px solid rgba(212,131,122,0.4);color:var(--text);padding:13px 26px;border-radius:40px;font-size:.85rem;box-shadow:0 12px 36px rgba(0,0,0,0.4);z-index:400;opacity:0;pointer-events:none;}
+
+/* ── SETUP BANNER ── */
+#setupBanner{
+  position:fixed;top:0;left:0;right:0;z-index:500;
+  background:linear-gradient(135deg,var(--gold),#a8854f);
+  color:#231a10;font-size:.82rem;text-align:center;
+  padding:11px 20px;display:none;
+}
+#setupBanner a{color:#231a10;text-decoration:underline;font-weight:500;}
+body.setup-mode nav{top:42px;}
+body.setup-mode #setupBanner{display:block;}
+
+/* ── RESPONSIVE ── */
+@media (max-width:980px){
+  .grid{grid-template-columns:repeat(2,1fr);}
+  .dashboard-grid{grid-template-columns:1fr 1fr;}
+}
+@media (max-width:760px){
+  .nav-links{display:none;}
+  .hamburger{display:flex;}
+  .dashboard-grid{grid-template-columns:1fr 1fr;}
+}
+@media (max-width:560px){
+  .grid{grid-template-columns:1fr;}
+  .dashboard-grid{grid-template-columns:1fr;}
+  .cd-unit{min-width:48px;}
+  nav{padding:14px 18px;}
+  section{padding:54px 18px;}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:0.01ms !important;transition-duration:0.01ms !important;}
+}
+</style>
+</head>
+<body>
+<div id="setupBanner">⚠️ Firebase belum disetel — perubahan saat ini tidak akan tersimpan. Lihat panduan SETUP.md untuk menghubungkan database.</div>
+<div id="bgGlow"></div>
+
+<nav>
+  <div class="nav-logo">♡ Wishlist Kita</div>
+  <ul class="nav-links">
+    <li><a href="#hero" class="active">Beranda</a></li>
+    <li><a href="#dashboard">Progres</a></li>
+    <li><a href="#wishlist">Wishlist</a></li>
+  </ul>
+  <div class="nav-right">
+    <button class="icon-btn" id="settingsBtn" title="Atur nama & tanggal">⚙</button>
+    <button class="add-btn" id="addBtn">+ Tambah</button>
+    <button class="hamburger" id="hamburgerBtn"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#hero">Beranda</a>
+  <a href="#dashboard">Progres</a>
+  <a href="#wishlist">Wishlist</a>
+</div>
+
+<section id="hero">
+  <div class="hero-inner">
+    <p class="hero-eyebrow">UNTUK KITA BERDUA</p>
+    <h1 class="hero-title">Daftar <em>Keinginan</em> Kita</h1>
+    <p class="hero-desc">Kita mau ngapain aja sayangg??</p>
+    <div class="countdown-card">
+      <p class="countdown-label"><span id="countdownLabel">Menuju Hari Spesial</span><button id="editDateBtn" title="Ubah tanggal">✎</button></p>
+      <div id="countdownActive" class="countdown-grid">
+        <div class="cd-unit"><span class="cd-num" id="cdDays">00</span><span class="cd-unit-label">Hari</span></div>
+        <div class="cd-sep">:</div>
+        <div class="cd-unit"><span class="cd-num" id="cdHours">00</span><span class="cd-unit-label">Jam</span></div>
+        <div class="cd-sep">:</div>
+        <div class="cd-unit"><span class="cd-num" id="cdMins">00</span><span class="cd-unit-label">Menit</span></div>
+        <div class="cd-sep">:</div>
+        <div class="cd-unit"><span class="cd-num" id="cdSecs">00</span><span class="cd-unit-label">Detik</span></div>
+      </div>
+      <p id="countdownArrived" class="countdown-arrived" style="display:none;">🎉 Hari spesialnya sudah tiba!</p>
+    </div>
+  </div>
+</section>
+
+<section id="dashboard">
+  <h2 class="section-title">Progres <em>Wishlist</em></h2>
+  <p class="section-sub">Apa aja wish list kita yang udah terwujud?</p>
+  <div class="dashboard-grid">
+    <div class="dash-card heart-progress-card">
+      <div class="heart-wrap">
+        <span class="heart-base">❤</span>
+        <span class="heart-fill-icon" id="heartFill">❤</span>
+        <span class="heart-percent" id="heartPercent">0%</span>
+      </div>
+      <span class="dash-card-label">Terwujud</span>
+    </div>
+    <div class="dash-card">
+      <span class="stat-num" id="statTotalValue">Rp0</span>
+      <span class="dash-card-label">Total Nilai Wishlist</span>
+    </div>
+    <div class="dash-card">
+      <span class="stat-num" id="statDoneValue">Rp0</span>
+      <span class="dash-card-label">Sudah Terwujud</span>
+    </div>
+    <div class="dash-card">
+      <span class="stat-num" id="statCount">0 / 0</span>
+      <span class="dash-card-label">Item Terwujud</span>
+    </div>
+  </div>
+</section>
+
+<section id="wishlist">
+  <h2 class="section-title">Wishlist <em>Kita</em></h2>
+  <p class="section-sub">Pilih wishlist siapa yang ingin dilihat</p>
+  <div class="tabs">
+    <button class="tab-btn active" data-owner="Deardo">Wishlist <span class="tabNameAku">Aku</span></button>
+    <button class="tab-btn" data-owner="God Angel">Wishlist <span class="tabNamePasangan">Pasangan</span></button>
+  </div>
+  <div class="filters">
+    <div class="chip-row" id="chipRow"></div>
+    <select class="sort-select" id="sortSelect">
+      <option value="priority">Prioritas tertinggi</option>
+      <option value="cheap">Termurah</option>
+      <option value="expensive">Termahal</option>
+      <option value="newest">Terbaru</option>
+    </select>
+  </div>
+  <div class="grid" id="itemGrid"></div>
+  <div class="empty-state" id="emptyState" style="display:none;">
+    <div class="e-icon">🎁</div>
+    <p>Belum ada keinginan di sini.</p>
+    <button class="cta-btn" id="emptyAddBtn" style="padding:11px 26px;">+ Tambah Keinginan</button>
+  </div>
+</section>
+
+<footer>Dibuat dengan ♡ untuk kita berdua</footer>
+
+<!-- Modal Tambah/Edit Item -->
+<div class="modal-overlay" id="itemModalOverlay">
+  <div class="modal" id="itemModal">
+    <button class="modal-close" id="itemModalClose">×</button>
+    <h3 id="modalTitle">Tambah Keinginan</h3>
+    <form id="itemForm">
+      <input type="hidden" id="itemId">
+      <label>Untuk siapa</label>
+      <select id="fOwner">
+        <option id="fOwnerAku" value="Deardo">Aku</option>
+        <option id="fOwnerPasangan" value="God Angel">Pasangan</option>
+      </select>
+
+      <label>Nama keinginan</label>
+      <input type="text" id="fTitle" placeholder="Misal: Sepatu lari" required>
+
+      <label>Kategori</label>
+      <input type="text" id="fCategory" placeholder="Gadget, Liburan, Fashion, dll" list="categoryList">
+      <datalist id="categoryList"></datalist>
+
+      <label>Harga estimasi (Rp)</label>
+      <input type="number" id="fPrice" min="0" placeholder="0">
+
+      <label>Prioritas</label>
+      <div class="priority-picker" id="priorityPicker">
+        <button type="button" data-val="1">♥</button>
+        <button type="button" data-val="2">♥</button>
+        <button type="button" data-val="3">♥</button>
+      </div>
+      <input type="hidden" id="fPriority" value="1">
+
+      <label>Link toko (opsional)</label>
+      <input type="url" id="fLink" placeholder="https://...">
+
+      <label>URL gambar (opsional)</label>
+      <input type="url" id="fImage" placeholder="https://...">
+
+      <label>Catatan kecil (opsional)</label>
+      <textarea id="fNotes" placeholder="Kenapa kamu pengen ini..."></textarea>
+
+      <div class="form-actions">
+        <button type="submit" class="cta-btn">Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Settings -->
+<div class="modal-overlay" id="settingsModalOverlay">
+  <div class="modal" id="settingsModal">
+    <button class="modal-close" id="settingsModalClose">×</button>
+    <h3>Atur Wishlist</h3>
+    <form id="settingsForm">
+      <label>Nama kamu</label>
+      <input type="text" id="sNameAku" placeholder="Aku">
+
+      <label>Nama pasangan</label>
+      <input type="text" id="sNamePasangan" placeholder="Pasangan">
+
+      <label>Judul hari spesial</label>
+      <input type="text" id="sSpecialLabel" placeholder="Misal: Anniversary Kita">
+
+      <label>Tanggal & jam</label>
+      <input type="datetime-local" id="sSpecialDate">
+
+      <div class="form-actions">
+        <button type="submit" class="cta-btn">Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== FIREBASE CONFIG ===================== */
+/* 
+  GANTI bagian di bawah ini dengan konfigurasi dari Firebase Console kamu.
+  Cara dapatnya: Firebase Console > Project Settings > General > Your apps > SDK setup and configuration.
+  Lihat file SETUP.md untuk panduan lengkap langkah demi langkah.
+*/
+const firebaseConfig = {
+  apiKey: "AIzaSyCBE-Y9BIuWZ6Fd88LnX-erXauiyGQSuRI",
+  authDomain: "gen-lang-client-0410831908.firebaseapp.com",
+  databaseURL: "https://gen-lang-client-0410831908-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "gen-lang-client-0410831908"
+};
+
+let firebaseReady = false;
+let metaRef = null;
+let itemsRef = null;
+
+function showSetupBanner(){
+  document.body.classList.add('setup-mode');
+}
+
+function initFirebase(){
+  if(firebaseConfig.apiKey.includes('ISI_')){
+    showSetupBanner();
+    return;
+  }
+  try{
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    metaRef = db.ref('wishlist_meta');
+    itemsRef = db.ref('wishlist_items');
+    firebaseReady = true;
+
+    metaRef.on('value', snap => {
+      const val = snap.val();
+      state.meta = val || JSON.parse(JSON.stringify(DEFAULT_META));
+      renderNames();
+      startCountdown();
+      renderDashboard();
+    });
+
+    itemsRef.on('value', snap => {
+      const val = snap.val() || {};
+      state.items = Object.values(val);
+      renderChips();
+      renderGrid();
+      renderDashboard();
+    });
+  }catch(e){
+    console.error('Gagal terhubung ke Firebase', e);
+    showSetupBanner();
+  }
+}
+
+/* ===================== STATE ===================== */
+const DEFAULT_META = {
+  names: { aku: 'Aku', pasangan: 'Pasangan' },
+  special: { label: 'Hari Spesial Kita', date: new Date(Date.now() + 30*86400000).toISOString() }
+};
+const _activeTab = document.querySelector('.tab-btn.active');
+let state = {
+  meta: JSON.parse(JSON.stringify(DEFAULT_META)),
+  items: [],
+  currentOwner: _activeTab ? _activeTab.dataset.owner : 'Deardo',
+  filterCategory: 'semua',
+  sortBy: 'priority'
+};
+
+/* ===================== STORAGE (Firebase) ===================== */
+async function saveMeta(){
+  if(!firebaseReady){ showToast('Belum terhubung ke Firebase — tidak tersimpan'); return; }
+  try{ await metaRef.set(state.meta); }
+  catch(e){ console.error('Gagal menyimpan setelan', e); showToast('Gagal menyimpan setelan'); }
+}
+async function saveItems(){
+  if(!firebaseReady){ showToast('Belum terhubung ke Firebase — tidak tersimpan'); return; }
+  const map = {};
+  state.items.forEach(it => { map[it.id] = it; });
+  try{ await itemsRef.set(map); }
+  catch(e){ console.error('Gagal menyimpan item', e); showToast('Gagal menyimpan item'); }
+}
+
+/* ===================== HELPERS ===================== */
+function formatRupiah(n){
+  n = Number(n) || 0;
+  return 'Rp' + Math.round(n).toLocaleString('id-ID');
+}
+function uid(){ return 'it_' + Date.now() + '_' + Math.floor(Math.random()*10000); }
+function toDatetimeLocal(iso){
+  const d = new Date(iso);
+  const pad = x => String(x).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  anime({ targets:t, opacity:[0,1], translateY:[30,0], duration:280, easing:'easeOutQuad' });
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>{
+    anime({ targets:t, opacity:[1,0], translateY:[0,30], duration:280, easing:'easeInQuad' });
+  }, 2200);
+}
+
+/* ===================== RENDER: NAMES & COUNTDOWN ===================== */
+function renderNames(){
+  document.querySelectorAll('.tabNameAku').forEach(el => el.textContent = state.meta.names.aku);
+  document.querySelectorAll('.tabNamePasangan').forEach(el => el.textContent = state.meta.names.pasangan);
+  document.getElementById('countdownLabel').textContent = 'Menuju ' + state.meta.special.label;
+
+  // Sync fOwner option values dengan nama di tab
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const ownerAkuOpt = document.getElementById('fOwnerAku');
+  const ownerPasanganOpt = document.getElementById('fOwnerPasangan');
+  if(tabBtns[0] && ownerAkuOpt){
+    ownerAkuOpt.value = tabBtns[0].dataset.owner;
+    ownerAkuOpt.textContent = state.meta.names.aku;
+  }
+  if(tabBtns[1] && ownerPasanganOpt){
+    ownerPasanganOpt.value = tabBtns[1].dataset.owner;
+    ownerPasanganOpt.textContent = state.meta.names.pasangan;
+  }
+}
+
+let countdownTimer = null;
+function startCountdown(){
+  if(countdownTimer) clearInterval(countdownTimer);
+  function tick(){
+    const target = new Date(state.meta.special.date).getTime();
+    const now = Date.now();
+    const diff = target - now;
+    const activeEl = document.getElementById('countdownActive');
+    const arrivedEl = document.getElementById('countdownArrived');
+    if(diff <= 0){
+      activeEl.style.display = 'none';
+      arrivedEl.style.display = 'block';
+      return;
+    }
+    activeEl.style.display = 'flex';
+    arrivedEl.style.display = 'none';
+    const d = Math.floor(diff/86400000);
+    const h = Math.floor(diff%86400000/3600000);
+    const m = Math.floor(diff%3600000/60000);
+    const s = Math.floor(diff%60000/1000);
+    document.getElementById('cdDays').textContent = String(d).padStart(2,'0');
+    document.getElementById('cdHours').textContent = String(h).padStart(2,'0');
+    document.getElementById('cdMins').textContent = String(m).padStart(2,'0');
+    document.getElementById('cdSecs').textContent = String(s).padStart(2,'0');
+  }
+  tick();
+  countdownTimer = setInterval(tick, 1000);
+}
+
+/* ===================== RENDER: DASHBOARD ===================== */
+function renderDashboard(){
+  const totalValue = state.items.reduce((sum,i)=> sum + (Number(i.price)||0), 0);
+  const doneItems = state.items.filter(i=>i.status==='terwujud');
+  const doneValue = doneItems.reduce((sum,i)=> sum + (Number(i.price)||0), 0);
+  const percent = totalValue > 0 ? Math.round((doneValue/totalValue)*100) : (state.items.length ? Math.round((doneItems.length/state.items.length)*100) : 0);
+
+  document.getElementById('statTotalValue').textContent = formatRupiah(totalValue);
+  document.getElementById('statDoneValue').textContent = formatRupiah(doneValue);
+  document.getElementById('statCount').textContent = `${doneItems.length} / ${state.items.length}`;
+
+  const heartFill = document.getElementById('heartFill');
+  const heartPercentEl = document.getElementById('heartPercent');
+  const animObj = { val: parseFloat(heartFill.dataset.current || 0) };
+  anime({
+    targets: animObj,
+    val: percent,
+    round: 1,
+    duration: 900,
+    easing: 'easeOutQuart',
+    update: () => {
+      heartFill.style.clipPath = `inset(${100-animObj.val}% 0 0 0)`;
+      heartPercentEl.textContent = Math.round(animObj.val) + '%';
+    }
+  });
+  heartFill.dataset.current = percent;
+}
+
+/* ===================== RENDER: CATEGORY CHIPS ===================== */
+function renderChips(){
+  const cats = Array.from(new Set(state.items.filter(i=>i.owner===state.currentOwner).map(i=>i.category).filter(Boolean)));
+  const row = document.getElementById('chipRow');
+  row.innerHTML = '';
+  const allChip = document.createElement('button');
+  allChip.className = 'chip' + (state.filterCategory==='semua' ? ' active' : '');
+  allChip.textContent = 'Semua';
+  allChip.onclick = () => { state.filterCategory='semua'; renderChips(); renderGrid(); };
+  row.appendChild(allChip);
+  cats.forEach(cat=>{
+    const chip = document.createElement('button');
+    chip.className = 'chip' + (state.filterCategory===cat ? ' active' : '');
+    chip.textContent = cat;
+    chip.onclick = () => { state.filterCategory = cat; renderChips(); renderGrid(); };
+    row.appendChild(chip);
+  });
+  // datalist untuk form
+  const datalist = document.getElementById('categoryList');
+  const allCatsEver = Array.from(new Set(state.items.map(i=>i.category).filter(Boolean)));
+  datalist.innerHTML = allCatsEver.map(c=>`<option value="${escapeHtml(c)}">`).join('');
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* ===================== RENDER: GRID ===================== */
+function renderGrid(){
+  let list = state.items.filter(i => i.owner === state.currentOwner);
+  if(state.filterCategory !== 'semua'){
+    list = list.filter(i => i.category === state.filterCategory);
+  }
+  switch(state.sortBy){
+    case 'cheap': list = list.slice().sort((a,b)=> (a.price||0)-(b.price||0)); break;
+    case 'expensive': list = list.slice().sort((a,b)=> (b.price||0)-(a.price||0)); break;
+    case 'newest': list = list.slice().sort((a,b)=> b.createdAt - a.createdAt); break;
+    default: list = list.slice().sort((a,b)=> b.priority - a.priority);
+  }
+
+  const grid = document.getElementById('itemGrid');
+  const empty = document.getElementById('emptyState');
+  grid.innerHTML = '';
+
+  if(list.length === 0){
+    empty.style.display = 'block';
+    grid.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  grid.style.display = 'grid';
+
+  list.forEach(item=>{
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.dataset.id = item.id;
+
+    const mediaHtml = item.imageUrl
+      ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;ph-heart&quot;>♡</div>'">`
+      : `<div class="ph-heart">♡</div>`;
+
+    const statusLabel = { belum:'Belum', direservasi:'🎁 Direservasi', terwujud:'✓ Terwujud' };
+
+    card.innerHTML = `
+      <div class="card-media">
+        ${mediaHtml}
+        <span class="status-badge status-${item.status}">${statusLabel[item.status]}</span>
+      </div>
+      <div class="card-body">
+        ${item.category ? `<span class="card-cat">${escapeHtml(item.category)}</span>` : ''}
+        <span class="card-title">${escapeHtml(item.title)}</span>
+        <span class="card-hearts">${'♥'.repeat(item.priority)}${'♡'.repeat(3-item.priority)}</span>
+        ${item.price ? `<span class="card-price">${formatRupiah(item.price)}</span>` : ''}
+        ${item.notes ? `<span class="card-notes">"${escapeHtml(item.notes)}"</span>` : ''}
+        ${item.link ? `<a class="card-link" href="${escapeHtml(item.link)}" target="_blank" rel="noopener">🔗 Lihat toko</a>` : ''}
+        <div class="card-footer">
+          <select class="status-select" data-id="${item.id}">
+            <option value="belum" ${item.status==='belum'?'selected':''}>Belum</option>
+            <option value="direservasi" ${item.status==='direservasi'?'selected':''}>Direservasi</option>
+            <option value="terwujud" ${item.status==='terwujud'?'selected':''}>Terwujud</option>
+          </select>
+          <button class="card-icon-btn edit-btn" data-id="${item.id}" title="Edit">✎</button>
+          <button class="card-icon-btn delete-btn" data-id="${item.id}" title="Hapus">🗑</button>
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  anime({
+    targets: '.item-card',
+    opacity: [0,1],
+    translateY: [18,0],
+    delay: anime.stagger(60),
+    duration: 480,
+    easing: 'easeOutQuad'
+  });
+}
+
+/* ===================== EVENTS: TABS / FILTERS ===================== */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    state.currentOwner = btn.dataset.owner;
+    state.filterCategory = 'semua';
+    renderChips();
+    renderGrid();
+  });
+});
+document.getElementById('sortSelect').addEventListener('change', e=>{
+  state.sortBy = e.target.value;
+  renderGrid();
+});
+
+/* ===================== EVENTS: GRID DELEGATION ===================== */
+document.getElementById('itemGrid').addEventListener('click', e=>{
+  const editBtn = e.target.closest('.edit-btn');
+  const delBtn = e.target.closest('.delete-btn');
+  if(editBtn) openItemModal(editBtn.dataset.id);
+  if(delBtn) deleteItem(delBtn.dataset.id);
+});
+document.getElementById('itemGrid').addEventListener('change', e=>{
+  if(e.target.classList.contains('status-select')){
+    const item = state.items.find(i=>i.id===e.target.dataset.id);
+    if(item){
+      item.status = e.target.value;
+      saveItems();
+      renderDashboard();
+      showToast('Status diperbarui ✓');
+    }
+  }
+});
+
+/* ===================== MODAL: ITEM ===================== */
+const itemModalOverlay = document.getElementById('itemModalOverlay');
+const itemModal = document.getElementById('itemModal');
+let priorityVal = 1;
+
+function setPriorityUI(val){
+  priorityVal = val;
+  document.getElementById('fPriority').value = val;
+  document.querySelectorAll('#priorityPicker button').forEach(b=>{
+    b.classList.toggle('filled', Number(b.dataset.val) <= val);
+  });
+}
+document.querySelectorAll('#priorityPicker button').forEach(b=>{
+  b.addEventListener('click', ()=> setPriorityUI(Number(b.dataset.val)));
+});
+
+function openModal(overlay, modal){
+  overlay.classList.add('open');
+  anime({ targets:modal, opacity:[0,1], scale:[0.94,1], duration:280, easing:'easeOutQuad' });
+}
+function closeModal(overlay, modal){
+  anime({
+    targets:modal, opacity:[1,0], scale:[1,0.94], duration:200, easing:'easeInQuad',
+    complete: ()=> overlay.classList.remove('open')
+  });
+}
+
+function openItemModal(id){
+  const form = document.getElementById('itemForm');
+  form.reset();
+  if(id){
+    const item = state.items.find(i=>i.id===id);
+    document.getElementById('modalTitle').textContent = 'Edit Keinginan';
+    document.getElementById('itemId').value = item.id;
+    document.getElementById('fOwner').value = item.owner;
+    document.getElementById('fTitle').value = item.title;
+    document.getElementById('fCategory').value = item.category || '';
+    document.getElementById('fPrice').value = item.price || '';
+    document.getElementById('fLink').value = item.link || '';
+    document.getElementById('fImage').value = item.imageUrl || '';
+    document.getElementById('fNotes').value = item.notes || '';
+    setPriorityUI(item.priority || 1);
+  } else {
+    document.getElementById('modalTitle').textContent = 'Tambah Keinginan';
+    document.getElementById('itemId').value = '';
+    document.getElementById('fOwner').value = state.currentOwner;
+    // pastikan option yang dipilih exist
+    const fOwnerEl = document.getElementById('fOwner');
+    if(![...fOwnerEl.options].some(o=>o.value===state.currentOwner)){
+      fOwnerEl.selectedIndex = 0;
+    }
+    setPriorityUI(1);
+  }
+  openModal(itemModalOverlay, itemModal);
+}
+document.getElementById('addBtn').addEventListener('click', ()=> openItemModal(null));
+document.getElementById('emptyAddBtn').addEventListener('click', ()=> openItemModal(null));
+document.getElementById('itemModalClose').addEventListener('click', ()=> closeModal(itemModalOverlay, itemModal));
+itemModalOverlay.addEventListener('click', e=>{ if(e.target===itemModalOverlay) closeModal(itemModalOverlay, itemModal); });
+
+document.getElementById('itemForm').addEventListener('submit', e=>{
+  e.preventDefault();
+  const id = document.getElementById('itemId').value;
+  const data = {
+    owner: document.getElementById('fOwner').value,
+    title: document.getElementById('fTitle').value.trim(),
+    category: document.getElementById('fCategory').value.trim() || 'Lainnya',
+    price: Number(document.getElementById('fPrice').value) || 0,
+    priority: priorityVal,
+    link: document.getElementById('fLink').value.trim(),
+    imageUrl: document.getElementById('fImage').value.trim(),
+    notes: document.getElementById('fNotes').value.trim()
+  };
+  if(!data.title) return;
+
+  if(id){
+    const item = state.items.find(i=>i.id===id);
+    Object.assign(item, data);
+    showToast('Keinginan diperbarui ✓');
+  } else {
+    state.items.push({ id: uid(), status:'belum', createdAt: Date.now(), ...data });
+    showToast('Keinginan ditambahkan ✓');
+  }
+  saveItems();
+  closeModal(itemModalOverlay, itemModal);
+  renderChips();
+  renderGrid();
+  renderDashboard();
+});
+
+function deleteItem(id){
+  if(!confirm('Hapus keinginan ini?')) return;
+  state.items = state.items.filter(i=>i.id!==id);
+  saveItems();
+  renderChips();
+  renderGrid();
+  renderDashboard();
+  showToast('Keinginan dihapus');
+}
+
+/* ===================== MODAL: SETTINGS ===================== */
+const settingsModalOverlay = document.getElementById('settingsModalOverlay');
+const settingsModal = document.getElementById('settingsModal');
+
+function openSettingsModal(){
+  document.getElementById('sNameAku').value = state.meta.names.aku;
+  document.getElementById('sNamePasangan').value = state.meta.names.pasangan;
+  document.getElementById('sSpecialLabel').value = state.meta.special.label;
+  document.getElementById('sSpecialDate').value = toDatetimeLocal(state.meta.special.date);
+  openModal(settingsModalOverlay, settingsModal);
+}
+document.getElementById('settingsBtn').addEventListener('click', openSettingsModal);
+document.getElementById('editDateBtn').addEventListener('click', openSettingsModal);
+document.getElementById('settingsModalClose').addEventListener('click', ()=> closeModal(settingsModalOverlay, settingsModal));
+settingsModalOverlay.addEventListener('click', e=>{ if(e.target===settingsModalOverlay) closeModal(settingsModalOverlay, settingsModal); });
+
+document.getElementById('settingsForm').addEventListener('submit', e=>{
+  e.preventDefault();
+  const newAku = document.getElementById('sNameAku').value.trim() || 'Aku';
+  const newPasangan = document.getElementById('sNamePasangan').value.trim() || 'Pasangan';
+
+  // Update data-owner di tab buttons supaya filter tetap sinkron
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  if(tabBtns[0]){
+    // Jika currentOwner sedang pakai nama lama, update juga
+    if(state.currentOwner === tabBtns[0].dataset.owner) state.currentOwner = newAku;
+    tabBtns[0].dataset.owner = newAku;
+  }
+  if(tabBtns[1]){
+    if(state.currentOwner === tabBtns[1].dataset.owner) state.currentOwner = newPasangan;
+    tabBtns[1].dataset.owner = newPasangan;
+  }
+
+  // Update nama di item yang tersimpan juga
+  state.items.forEach(it=>{
+    if(it.owner === state.meta.names.aku) it.owner = newAku;
+    else if(it.owner === state.meta.names.pasangan) it.owner = newPasangan;
+  });
+
+  state.meta.names.aku = newAku;
+  state.meta.names.pasangan = newPasangan;
+  state.meta.special.label = document.getElementById('sSpecialLabel').value.trim() || 'Hari Spesial Kita';
+  const dateVal = document.getElementById('sSpecialDate').value;
+  if(dateVal) state.meta.special.date = new Date(dateVal).toISOString();
+  saveMeta();
+  saveItems();
+  renderNames();
+  startCountdown();
+  renderChips();
+  renderGrid();
+  closeModal(settingsModalOverlay, settingsModal);
+  showToast('Setelan disimpan ✓');
+});
+
+/* ===================== MOBILE MENU ===================== */
+document.getElementById('hamburgerBtn').addEventListener('click', ()=>{
+  document.getElementById('mobileMenu').classList.toggle('open');
+});
+document.querySelectorAll('.mobile-menu a').forEach(a=>{
+  a.addEventListener('click', ()=> document.getElementById('mobileMenu').classList.remove('open'));
+});
+
+/* ===================== NAV ACTIVE LINK ON SCROLL ===================== */
+const sections = ['hero','dashboard','wishlist'];
+window.addEventListener('scroll', ()=>{
+  let current = 'hero';
+  sections.forEach(id=>{
+    const el = document.getElementById(id);
+    if(el && window.scrollY >= el.offsetTop - 200) current = id;
+  });
+  document.querySelectorAll('.nav-links a').forEach(a=>{
+    a.classList.toggle('active', a.getAttribute('href') === '#'+current);
+  });
+});
+
+/* ===================== INIT ===================== */
+async function init(){
+  initFirebase();
+  renderNames();
+  startCountdown();
+  renderChips();
+  renderGrid();
+  renderDashboard();
+
+  anime.timeline({ easing:'easeOutQuart' })
+    .add({ targets:'.hero-eyebrow', opacity:[0,1], translateY:[16,0], duration:600 })
+    .add({ targets:'.hero-title', opacity:[0,1], translateY:[20,0], duration:700 }, '-=400')
+    .add({ targets:'.hero-desc', opacity:[0,1], translateY:[16,0], duration:600 }, '-=450')
+    .add({ targets:'.countdown-card', opacity:[0,1], translateY:[24,0], duration:700 }, '-=400');
+}
+init();
+</script>
+</body>
+</html>
